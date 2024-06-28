@@ -77,7 +77,7 @@ char *sshdRunning()
 {
     FILE *fp;
     char path[1035];
-    char result[100];
+    static char result[100];
     bool isListener = false;
 
     fp = popen("ps ax | grep [s]shd", "r");
@@ -98,7 +98,8 @@ char *sshdRunning()
 
     if (pclose(fp) == -1)
     {
-        errorHandling("Error to close the command");
+        perror("Error to close the command");
+        exit(EXIT_FAILURE);
     }
 
     if (isListener)
@@ -179,8 +180,8 @@ int main(int argc, char *argv[])
     }
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server_addr.sin_port = htons(9595);
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(9696);
 
     if (bind(server_socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
         errorHandling("Error at bind");
@@ -194,6 +195,11 @@ int main(int argc, char *argv[])
     {
         client_addr_size = sizeof(client_addr);
         client_socket_fd = malloc(sizeof(int));
+        if (client_socket_fd == NULL)
+        {
+            perror("Error allocating memory");
+            continue;
+        }
         *client_socket_fd = accept(server_socket_fd, (struct sockaddr *)&client_addr, &client_addr_size);
         if (*client_socket_fd == -1)
         {
@@ -201,7 +207,12 @@ int main(int argc, char *argv[])
             perror("Error at accept");
             continue;
         }
-        pthread_create(&t_id, NULL, threadMain, (void *)client_socket_fd);
+        if (pthread_create(&t_id, NULL, threadMain, (void *)client_socket_fd) != 0)
+        {
+            perror("Error creating thread");
+            free(client_socket_fd);
+            continue;
+        }
         pthread_detach(t_id);
     }
 
