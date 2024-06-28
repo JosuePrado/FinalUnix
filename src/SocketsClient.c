@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1)
         error_handling("connect() error");
 
-    strcpy(message, "getNumberOfPartitions\ngetInfo\ngetCurrentKernelVersion");
+    strcpy(message, "getInfo");
     write(sock, message, strlen(message));
 
     str_len = read(sock, message, MESSAGE_SIZE - 1);
@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
         error_handling("read() error");
 
     message[str_len] = '\0';
-    printf("Message from server: \n%s", message);
+    printf("Message from server: \n%s \n", message);
 
     close(sock);
     return 0;

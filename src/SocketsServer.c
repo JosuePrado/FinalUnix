@@ -8,7 +8,7 @@
 #include <stdbool.h>
 
 #define MAX_CONNECTION 50
-#define MESSAGE_SIZE 2560
+#define MESSAGE_SIZE 256
 
 int server_socket_fd;
 
@@ -73,10 +73,11 @@ char *getCurrentKernelVersion()
     return result;
 }
 
-bool sshdRunning()
+char *sshdRunning()
 {
     FILE *fp;
     char path[1035];
+    char result[100];
     bool isListener = false;
 
     fp = popen("ps ax | grep [s]shd", "r");
@@ -97,11 +98,19 @@ bool sshdRunning()
 
     if (pclose(fp) == -1)
     {
-        perror("Error to close the command");
-        exit(EXIT_FAILURE);
+        errorHandling("Error to close the command");
     }
 
-    return isListener;
+    if (isListener)
+    {
+        strcpy(result, "true");
+    }
+    else
+    {
+        strcpy(result, "false");
+    }
+
+    return result;
 }
 
 void errorHandling(const char *message)
@@ -110,42 +119,32 @@ void errorHandling(const char *message)
     exit(EXIT_FAILURE);
 }
 
-void processCommand(int client_socket_fd, const char *command)
-{
-    char response[MESSAGE_SIZE];
-    if (strcmp(command, "getInfo") == 0)
-    {
-        snprintf(response, sizeof(response), "%s", getInfo());
-    }
-    else if (strcmp(command, "getNumberOfPartitions") == 0)
-    {
-        snprintf(response, sizeof(response), "%s", getNumberOfPartitions());
-    }
-    else if (strcmp(command, "getCurrentKernelVersion") == 0)
-    {
-        snprintf(response, sizeof(response), "%s", getCurrentKernelVersion());
-    }
-    else
-    {
-        snprintf(response, sizeof(response), "Unknown command: %s", command);
-    }
-
-    write(client_socket_fd, response, strlen(response));
-    write(client_socket_fd, "\n", 1);
-}
-
 void clientManager(int client_socket_fd)
 {
     char buffer[MESSAGE_SIZE];
-    int read_status = read(client_socket_fd, buffer, sizeof(buffer) - 1);
+    int read_status = read(client_socket_fd, buffer, MESSAGE_SIZE - 1);
     if (read_status > 0)
     {
         buffer[read_status] = '\0';
-        char *command = strtok(buffer, "\n");
-        while (command != NULL)
+        if (strcmp(buffer, "getInfo") == 0)
         {
-            processCommand(client_socket_fd, command);
-            command = strtok(NULL, "\n");
+            write(client_socket_fd, getInfo(), strlen(getInfo()));
+        }
+        else if (strcmp(buffer, "getNumberOfPartitions") == 0)
+        {
+            write(client_socket_fd, getNumberOfPartitions(), strlen(getNumberOfPartitions()));
+        }
+        else if (strcmp(buffer, "getCurrentKernelVersion") == 0)
+        {
+            write(client_socket_fd, getCurrentKernelVersion(), strlen(getCurrentKernelVersion()));
+        }
+        else if (strcmp(buffer, "sshdRunning") == 0)
+        {
+            write(client_socket_fd, sshdRunning(), strlen(sshdRunning()));
+        }
+        else
+        {
+            write(client_socket_fd, "Unknown command", 15);
         }
     }
     close(client_socket_fd);
